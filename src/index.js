@@ -1,102 +1,97 @@
-import { fetchBreeds, fetchCatByBreed } from "./cat-api.js";
+import { Notify } from 'notiflix/build/notiflix-notify-aio';
+import debounce from 'lodash.debounce';
+import { fetchCountries } from './js/fetchCountries';
 
-const breedSelect = document.querySelector(".breed-select");
-const loader = document.querySelector(".loader");
-const error = document.querySelector(".error");
-const catInfo = document.querySelector(".cat-info");
+const DEBOUNCE_DELAY = 300;
 
-function populateBreedOptions(breeds) {
-  breeds.forEach(breed => {
-    const option = document.createElement("option");
-    option.value = breed.id;
-    option.text = breed.name;
-    breedSelect.appendChild(option);
-  });
-}
+const countriesList = document.querySelector('.country-list');
+const countryInfo = document.querySelector('.country-info');
+const searchBox = document.querySelector('#search-box');
+const body = document.querySelector('body');
 
-// Function to display cat information
-function displayCatInfo(cat) {
-  catInfo.innerHTML = `
-    <img src="${cat[0].url}" alt="Cat Image" />
-    <h3>${cat[0].breeds[0].name}</h3>
-    <p><b>Description:</b> ${cat[0].breeds[0].description}</p>
-    <p><b>Temperament:</b> ${cat[0].breeds[0].temperament}</p>
-  `;
-}
+countriesList.style.visibility = 'hidden';
+countryInfo.style.visibility = 'hidden';
 
-// Function to handle the breed select change event
-function handleBreedSelectChange() {
-  const breedId = breedSelect.value;
-  loader.style.display = "block";
-  catInfo.style.display = "none";
-  error.style.display = "none";
+searchBox.addEventListener('input', debounce(onInputSearch, DEBOUNCE_DELAY));
 
-  fetchCatByBreed(breedId)
-    .then(cat => {
-      displayCatInfo(cat);
-      loader.style.display = "none";
-      catInfo.style.display = "block";
+function onInputSearch(e) {
+  const value = searchBox.value.trim();
+  console.log(value);
+
+  if (!value) {
+    addHidden();
+    clearInterfaceUI();
+    return;
+  }
+
+  fetchCountries(value)
+    .then(data => {
+      if (data.length > 10) {
+        Notify.info(
+          'Too many matches found. Please enter a more specific name.'
+        );
+      }
+      renderCountries(data);
     })
-    .catch(() => {
-      loader.style.display = "none";
-      error.style.display = "block";
+    .catch(err => {
+      clearInterfaceUI();
+      Notify.failure('Oops, there is no country with that name');
     });
 }
 
-// Event listener for breed select change event
-breedSelect.addEventListener("change", handleBreedSelectChange);
+const generateMarkupCountryInfo = data =>
+  data.reduce(
+    (acc, { flags: { svg }, name, capital, population, languages }) => {
+      console.log(languages);
+      languages = Object.values(languages).join(', ');
+      console.log(name);
+      return (
+        acc +
+        ` <img src="${svg}" alt="${name}" width="320" height="auto">
+            <p> ${name.official}</p>
+            <p>Capital: <span> ${capital}</span></p>
+            <p>Population: <span> ${population}</span></p>
+            <p>Languages: <span> ${languages}</span></p>`
+      );
+    },
+    ''
+  );
 
-// Fetch breeds and populate the breed select options on page load
-loader.style.display = "block";
-fetchBreeds()
-  .then(breeds => {
-    populateBreedOptions(breeds);
-    loader.style.display = "none";
-    breedSelect.style.display = "block";
-  })
-  .catch(() => {
-    loader.style.display = "none";
-    error.style.display = "block";
-  });
+const generateMarkupCountryList = data =>
+  data.reduce((acc, { name: { official, common }, flags: { svg } }) => {
+    return (
+      acc +
+      `<li>
+        <img src="${svg}" alt="${common}" width="70">
+        <span>${official}</span>
+      </li>`
+    );
+  }, '');
 
+function renderCountries(result) {
+  if (result.length === 1) {
+    countriesList.innerHTML = '';
+    countriesList.style.visibility = 'hidden';
+    countryInfo.style.visibility = 'visible';
+    countryInfo.innerHTML = generateMarkupCountryInfo(result);
+  }
+  if (result.length >= 2 && result.length <= 10) {
+    countryInfo.innerHTML = '';
+    countryInfo.style.visibility = 'hidden';
+    countriesList.style.visibility = 'visible';
+    countriesList.innerHTML = generateMarkupCountryList(result);
+  }
+}
 
+function clearInterfaceUI() {
+  countriesList.innerHTML = '';
+  countryInfo.innerHTML = '';
+}
 
-
-
-
-
-
-
-
-// const BASE_URL = "https://api.thecatapi.com/v1";
-// const END_POINT_BREEDS = "/breeds";
-// const END_POINT_IMAGES_SEARCH = "/images/search";
-// const API_KEY = "live_umVm6hCSVptKOGJfjECOkLIjHhql4q0og41A1ClkOkjBFq9MNjViDOHD4QNDsUti";
-// const select = document.querySelector(".breed-select");
-
-// select.addEventListener("change", onChange);
-
-// function getBreed() {
-//     const URL = `${BASE_URL}${END_POINT_BREEDS}`;
-//     return fetch(URL).then((resp) => {
-//         console.log(resp);
-//         if (!resp.ok) { // resp.ok === false
-//             throw new Error(resp.statusText);
-//         }
-//         return resp.json();
-//     });
-// }
-
-
-// function onChange(breeds) {
-//  breeds.forEach(breed => {
-//     const option = document.createElement('option');
-//     option.value = breed.id;
-//     option.textContent = breed.name;
-//     breedSelect.appendChild(option);
-//  });
-    
-// }
+function addHidden() {
+  countriesList.style.visibility = 'hidden';
+  countryInfo.style.visibility = 'hidden';
+}
 
 
 
